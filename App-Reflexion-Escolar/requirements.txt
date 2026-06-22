@@ -1,0 +1,6 @@
+streamlit
+google-genai
+requests
+streamlit-lottie
+gspread
+google-auth
