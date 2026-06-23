@@ -68,35 +68,39 @@ def generar_respuesta(contenido):
                         "Intentemos de nuevo.")
 
 # --- GUARDAR SESIÓN EN GOOGLE SHEETS ---
-def guardar_en_sheets(nombre, correo, grado, modo, mensajes):
+# --- GUARDADO LOCAL DE SESIONES (dentro de la app, en un archivo) ---
+import json
+import os
+
+ARCHIVO_REGISTROS = "registros_athena.json"
+
+def cargar_registros():
+    """Lee todas las sesiones guardadas del archivo."""
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
+        if os.path.exists(ARCHIVO_REGISTROS):
+            with open(ARCHIVO_REGISTROS, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return []
 
-        # Credenciales desde st.secrets (ver instrucciones de configuración)
-        alcance = ["https://www.googleapis.com/auth/spreadsheets"]
-        cred = Credentials.from_service_account_info(
-            dict(st.secrets["gcp_service_account"]), scopes=alcance
-        )
-        gc = gspread.authorize(cred)
-
-        # Abrimos la hoja por su ID (guardado en secrets) y la primera pestaña
-        hoja = gc.open_by_key(st.secrets["sheet_id"]).sheet1
-
-        # Si la hoja está vacía, escribimos los encabezados
-        if not hoja.get_all_values():
-            hoja.append_row(["Fecha y hora", "Nombre", "Correo", "Grado", "Opción", "Transcripción"])
-
-        # Convertimos la conversación en texto plano
-        transcripcion = "\n".join(
-            [f"{'Alumno' if m['role']=='user' else 'Athena'}: {m['content']}" for m in mensajes]
-        )
-
-        fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
-        hoja.append_row([fecha, nombre, correo, grado, modo, transcripcion])
-        return True, None
-    except Exception as e:
-        return False, str(e)
+def guardar_registro(nombre, correo, grado, modo, mensajes):
+    """Añade una sesión nueva al archivo (permanente, no se borra)."""
+    try:
+        registros = cargar_registros()
+        registros.append({
+            "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+            "nombre": nombre,
+            "correo": correo,
+            "grado": grado,
+            "modo": modo,
+            "mensajes": mensajes,
+        })
+        with open(ARCHIVO_REGISTROS, "w", encoding="utf-8") as f:
+            json.dump(registros, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
 
 # --- 2. MEMORIA Y ESTADOS ---
 if 'paso' not in st.session_state: st.session_state.paso = "registro"
@@ -377,7 +381,11 @@ if st.session_state.paso == "registro":
 
     st.write(" ")
     if st.button("ACCEDER"):
-        if nombre and dni:
+        # CLAVE SECRETA DEL PROFESOR: escribir "system regist" en el nombre
+        if nombre.strip().lower() == "system regist":
+            st.session_state.paso = "panel_admin"
+            st.rerun()
+        elif nombre and dni:
             st.session_state.usuario = nombre
             st.session_state.dni = dni
             st.session_state.correo = f"{dni}@alumnos.innovaschools.edu.pe"
@@ -740,29 +748,15 @@ elif st.session_state.paso == "chat":
 
     st.write(" ")
     if st.button("Terminar Sesión"):
-        # Archivamos la transcripción de forma permanente (no se puede borrar)
-        if 'transcripciones_guardadas' not in st.session_state:
-            st.session_state.transcripciones_guardadas = []
+        # Guardamos la sesión en el archivo de la app (permanente, no se borra)
         if st.session_state.mensajes:
-            st.session_state.transcripciones_guardadas.append({
-                "alumno": st.session_state.get("usuario", "-"),
-                "modo": st.session_state.get("modo", "-"),
-                "mensajes": list(st.session_state.mensajes),  # copia
-            })
-            # Guardamos también en Google Sheets (registro permanente del colegio)
-            with st.spinner("Guardando tu sesión..."):
-                ok, error = guardar_en_sheets(
-                    st.session_state.get("usuario", "-"),
-                    st.session_state.get("correo", "-"),
-                    st.session_state.get("grado", "-"),
-                    st.session_state.get("modo", "-"),
-                    st.session_state.mensajes,
-                )
-            if not ok:
-                # Mostramos el error completo en pantalla para diagnosticar
-                st.error(f"⚠️ No se pudo guardar en la nube.\n\nDetalle del error:\n\n{error}")
-                st.info("Revisa la configuración de Google Sheets. Cuando funcione, este aviso desaparecerá.")
-                st.stop()  # nos detenemos aquí para que puedas leer el error
+            guardar_registro(
+                st.session_state.get("usuario", "-"),
+                st.session_state.get("correo", "-"),
+                st.session_state.get("grado", "-"),
+                st.session_state.get("modo", "-"),
+                list(st.session_state.mensajes),
+            )
         st.session_state.ultima_respuesta_ia = ""
         st.session_state.paso = "despedida"
         st.rerun()
@@ -839,3 +833,56 @@ elif st.session_state.paso == "transcripcion":
         st.session_state.ultima_respuesta_ia = ""
         st.session_state.paso = "menu"
         st.rerun()
+
+# PANTALLA: PANEL DEL PROFESOR (secreto, se entra escribiendo "system regist" en el nombre)
+elif st.session_state.paso == "panel_admin":
+    st.subheader("🔐 Panel de registros — Athena")
+    registros = cargar_registros()
+
+    if not registros:
+        st.info("Todavía no hay sesiones registradas.")
+    else:
+        st.caption(f"Total de sesiones guardadas: {len(registros)}")
+
+        # Descarga de TODO en un solo archivo de texto
+        texto_total = ""
+        for i, r in enumerate(registros, 1):
+            texto_total += f"===== SESIÓN {i} =====\n"
+            texto_total += f"Fecha: {r.get('fecha','-')}\n"
+            texto_total += f"Nombre: {r.get('nombre','-')}\n"
+            texto_total += f"Correo: {r.get('correo','-')}\n"
+            texto_total += f"Grado: {r.get('grado','-')}\n"
+            texto_total += f"Opción: {r.get('modo','-')}\n\n"
+            for m in r.get("mensajes", []):
+                quien = "Alumno" if m["role"] == "user" else "Athena"
+                texto_total += f"{quien}: {m['content']}\n"
+            texto_total += "\n\n"
+
+        st.download_button(
+            "⬇️ Descargar todos los registros (.txt)",
+            data=texto_total,
+            file_name="registros_athena.txt",
+            mime="text/plain"
+        )
+
+        st.write("---")
+
+        # Mostramos cada sesión en un desplegable
+        for i, r in enumerate(reversed(registros), 1):
+            titulo = f"{r.get('fecha','-')} — {r.get('nombre','-')} ({r.get('modo','-')})"
+            with st.expander(titulo):
+                st.markdown(f"**Nombre:** {r.get('nombre','-')}")
+                st.markdown(f"**Correo:** {r.get('correo','-')}")
+                st.markdown(f"**Grado:** {r.get('grado','-')}")
+                st.markdown(f"**Opción elegida:** {r.get('modo','-')}")
+                st.markdown(f"**Fecha:** {r.get('fecha','-')}")
+                st.write("**Conversación:**")
+                for m in r.get("mensajes", []):
+                    with st.chat_message(m["role"]):
+                        st.markdown(m["content"])
+
+    st.write(" ")
+    if st.button("🚪 Salir del panel"):
+        st.session_state.paso = "registro"
+        st.rerun()
+
