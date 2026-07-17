@@ -6,6 +6,14 @@ import time
 import re
 from datetime import datetime
 
+# ============================================================
+#  🎬 LINK DEL VIDEO TUTORIAL
+#  Pega aquí el enlace de tu video (YouTube, Drive, etc.)
+#  Ejemplo: "https://www.youtube.com/watch?v=abc123"
+#  Mientras esté vacío, el botón avisará que aún no hay video.
+# ============================================================
+LINK_TUTORIAL = ""
+
 # --- LIMPIEZA DE TEXTO PARA LA VOZ ---
 # Quita muletillas ('mmm', 'hmm', 'ajá'...), acotaciones entre asteriscos y emojis
 # para que la voz nunca pronuncie "eme eme eme" ni lea símbolos.
@@ -67,7 +75,6 @@ def generar_respuesta(contenido):
                 return ("Disculpa, tuve un problema técnico para responderte. "
                         "Intentemos de nuevo.")
 
-# --- GUARDAR SESIÓN EN GOOGLE SHEETS ---
 # --- GUARDADO LOCAL DE SESIONES (dentro de la app, en un archivo) ---
 import json
 import os
@@ -185,6 +192,10 @@ st.markdown("""
         animation: shimmer 6s linear infinite;
         filter: drop-shadow(0 4px 30px rgba(96,165,250,0.3));
     }
+    .titulo-sistem {
+        font-size: clamp(40px, 9vw, 110px) !important;
+        letter-spacing: 10px !important;
+    }
     .header-sub {
         color: #94a3b8;
         font-family: sans-serif;
@@ -291,28 +302,28 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# CRÉDITOS FLOTANTES (efecto cristal) — ocultos en la pantalla de despedida
-if st.session_state.paso != "despedida":
+# CRÉDITOS FLOTANTES (efecto cristal) — SOLO en la pantalla de inicio (registro)
+if st.session_state.paso == "registro":
     st.markdown("""
     <style>
     @keyframes flota1 {
         0%   { transform: translate(0, 0) rotate(-4deg); }
-        50%  { transform: translate(30px, -40px) rotate(3deg); }
+        50%  { transform: translate(20px, -30px) rotate(3deg); }
         100% { transform: translate(0, 0) rotate(-4deg); }
     }
     @keyframes flota2 {
         0%   { transform: translate(0, 0) rotate(5deg); }
-        50%  { transform: translate(-35px, 30px) rotate(-3deg); }
+        50%  { transform: translate(-25px, 25px) rotate(-3deg); }
         100% { transform: translate(0, 0) rotate(5deg); }
     }
     @keyframes flota3 {
         0%   { transform: translate(0, 0) rotate(2deg); }
-        50%  { transform: translate(25px, 35px) rotate(-5deg); }
+        50%  { transform: translate(18px, 28px) rotate(-5deg); }
         100% { transform: translate(0, 0) rotate(2deg); }
     }
     @keyframes flota4 {
         0%   { transform: translate(0, 0) rotate(-3deg); }
-        50%  { transform: translate(-30px, -30px) rotate(4deg); }
+        50%  { transform: translate(-20px, -22px) rotate(4deg); }
         100% { transform: translate(0, 0) rotate(-3deg); }
     }
     .creditos-capa {
@@ -340,10 +351,24 @@ if st.session_state.paso != "despedida":
         text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         white-space: nowrap;
     }
-    .c1 { top: 14%; left: 8%;  font-size: 22px; animation: flota1 14s ease-in-out infinite; }
-    .c2 { top: 30%; right: 7%; font-size: 26px; animation: flota2 18s ease-in-out infinite; }
-    .c3 { bottom: 22%; left: 12%; font-size: 24px; animation: flota3 16s ease-in-out infinite; }
-    .c4 { bottom: 14%; right: 10%; font-size: 20px; animation: flota4 20s ease-in-out infinite; }
+    /* Posiciones en pantalla normal (PC) */
+    .c1 { top: 12%; left: 6%;  font-size: 22px; animation: flota1 14s ease-in-out infinite; }
+    .c2 { top: 22%; right: 6%; font-size: 24px; animation: flota2 18s ease-in-out infinite; }
+    .c3 { bottom: 24%; left: 8%; font-size: 22px; animation: flota3 16s ease-in-out infinite; }
+    .c4 { bottom: 10%; right: 7%; font-size: 20px; animation: flota4 20s ease-in-out infinite; }
+
+    /* En celular: nombres más chicos y bien separados en las 4 esquinas */
+    @media (max-width: 640px) {
+        .credito {
+            font-size: 15px !important;
+            padding: 6px 12px;
+            letter-spacing: 2px;
+        }
+        .c1 { top: 8%;  left: 5%;  right: auto; }
+        .c2 { top: 8%;  right: 5%; left: auto; }
+        .c3 { bottom: 8%; left: 5%; right: auto; top: auto; }
+        .c4 { bottom: 8%; right: 5%; left: auto; top: auto; }
+    }
     /* Aseguramos que el contenido real quede por encima de los créditos */
     .block-container { position: relative; z-index: 1; }
     </style>
@@ -355,13 +380,53 @@ if st.session_state.paso != "despedida":
     </div>
     """, unsafe_allow_html=True)
 
+    # --- ESTILO DEL BOTÓN "TUTORIAL" (mismo cristal que los créditos) ---
+    st.markdown("""
+    <style>
+    @keyframes flotaTutorial {
+        0%, 100% { transform: translateY(0); }
+        50%      { transform: translateY(-8px); }
+    }
+    /* El botón Tutorial usa el estilo cristal, no el azul del resto */
+    div[data-testid="stButton"] button[kind="secondary"] {
+        font-family: 'Georgia', serif !important;
+        font-weight: 700 !important;
+        letter-spacing: 3px !important;
+        text-transform: uppercase !important;
+        color: rgba(255,255,255,0.8) !important;
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.22) !important;
+        border-radius: 16px !important;
+        padding: 10px 24px !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+        box-shadow: 0 8px 32px rgba(31,38,135,0.25), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.3) !important;
+        animation: flotaTutorial 3.5s ease-in-out infinite;
+    }
+    div[data-testid="stButton"] button[kind="secondary"]:hover {
+        background: rgba(255,255,255,0.14) !important;
+        border-color: rgba(255,255,255,0.4) !important;
+        transform: translateY(-3px) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # CABECERA PRINCIPAL — oculta en la pantalla de despedida
 if st.session_state.paso != "despedida":
-    st.markdown("""
+    if st.session_state.paso == "panel_admin":
+        titulo_header = "ATHENA SISTEM"
+        subtitulo_header = ""
+        clase_titulo = "athena-title titulo-sistem"
+    else:
+        titulo_header = "ATHENA"
+        subtitulo_header = "Tu asistente de reflexión y bienestar"
+        clase_titulo = "athena-title"
+    st.markdown(f"""
     <div class="header-container">
-        <p class="athena-title">ATHENA</p>
+        <p class="{clase_titulo}">{titulo_header}</p>
     </div>
-    <p class="header-sub" style="text-align:center;">Tu asistente de reflexión y bienestar</p>
+    <p class="header-sub" style="text-align:center;">{subtitulo_header}</p>
     """, unsafe_allow_html=True)
 
 # --- 4. LÓGICA DE PANTALLAS ---
@@ -395,6 +460,26 @@ if st.session_state.paso == "registro":
             st.rerun()
         else:
             st.toast("Por favor, completa todos los campos para ingresar.")
+
+    # --- BOTÓN TUTORIAL (estilo cristal, abre el video dentro de la app) ---
+    st.write(" ")
+    if 'ver_tutorial' not in st.session_state:
+        st.session_state.ver_tutorial = False
+
+    col_izq, col_tut, col_der = st.columns([1, 1.2, 1])
+    with col_tut:
+        etiqueta = "✕ Cerrar tutorial" if st.session_state.ver_tutorial else "🎬 Tutorial"
+        if st.button(etiqueta, type="secondary"):
+            st.session_state.ver_tutorial = not st.session_state.ver_tutorial
+            st.rerun()
+
+    # Mostramos el video dentro de la app
+    if st.session_state.ver_tutorial:
+        if LINK_TUTORIAL.strip():
+            st.video(LINK_TUTORIAL)
+        else:
+            st.info("El video del tutorial aún no está configurado. "
+                    "Pega el enlace en la variable LINK_TUTORIAL, al inicio del código.")
 
 # PANTALLA: MENÚ (REFLEXIÓN O CONSEJERO)
 elif st.session_state.paso == "menu":
@@ -836,36 +921,12 @@ elif st.session_state.paso == "transcripcion":
 
 # PANTALLA: PANEL DEL PROFESOR (secreto, se entra escribiendo "system regist" en el nombre)
 elif st.session_state.paso == "panel_admin":
-    st.subheader("🔐 Panel de registros — Athena")
     registros = cargar_registros()
 
     if not registros:
         st.info("Todavía no hay sesiones registradas.")
     else:
         st.caption(f"Total de sesiones guardadas: {len(registros)}")
-
-        # Descarga de TODO en un solo archivo de texto
-        texto_total = ""
-        for i, r in enumerate(registros, 1):
-            texto_total += f"===== SESIÓN {i} =====\n"
-            texto_total += f"Fecha: {r.get('fecha','-')}\n"
-            texto_total += f"Nombre: {r.get('nombre','-')}\n"
-            texto_total += f"Correo: {r.get('correo','-')}\n"
-            texto_total += f"Grado: {r.get('grado','-')}\n"
-            texto_total += f"Opción: {r.get('modo','-')}\n\n"
-            for m in r.get("mensajes", []):
-                quien = "Alumno" if m["role"] == "user" else "Athena"
-                texto_total += f"{quien}: {m['content']}\n"
-            texto_total += "\n\n"
-
-        st.download_button(
-            "⬇️ Descargar todos los registros (.txt)",
-            data=texto_total,
-            file_name="registros_athena.txt",
-            mime="text/plain"
-        )
-
-        st.write("---")
 
         # Mostramos cada sesión en un desplegable
         for i, r in enumerate(reversed(registros), 1):
@@ -885,4 +946,3 @@ elif st.session_state.paso == "panel_admin":
     if st.button("🚪 Salir del panel"):
         st.session_state.paso = "registro"
         st.rerun()
-
