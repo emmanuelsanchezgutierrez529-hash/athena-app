@@ -7,12 +7,13 @@ import re
 from datetime import datetime
 
 # ============================================================
-#  🎬 LINK DEL VIDEO TUTORIAL
-#  Pega aquí el enlace de tu video (YouTube, Drive, etc.)
-#  Ejemplo: "https://www.youtube.com/watch?v=abc123"
-#  Mientras esté vacío, el botón avisará que aún no hay video.
+#  🎬 VIDEO TUTORIAL (Google Drive)
+#  Solo necesitas el ID del video. Sale del enlace de Drive:
+#  https://drive.google.com/file/d/ESTE_ES_EL_ID/view?usp=sharing
+#  IMPORTANTE: el video debe estar compartido como
+#  "Cualquier persona con el enlace" para que se vea.
 # ============================================================
-LINK_TUTORIAL = ""
+DRIVE_VIDEO_ID = "1_plpyhj3-_moEr0UUgOa1ORl4V9MeKv5"
 
 # --- LIMPIEZA DE TEXTO PARA LA VOZ ---
 # Quita muletillas ('mmm', 'hmm', 'ajá'...), acotaciones entre asteriscos y emojis
@@ -473,13 +474,25 @@ if st.session_state.paso == "registro":
             st.session_state.ver_tutorial = not st.session_state.ver_tutorial
             st.rerun()
 
-    # Mostramos el video dentro de la app
+    # Mostramos el video de Drive dentro de la app
     if st.session_state.ver_tutorial:
-        if LINK_TUTORIAL.strip():
-            st.video(LINK_TUTORIAL)
+        if DRIVE_VIDEO_ID.strip():
+            st.components.v1.html(
+                f"""
+                <div style="border-radius:16px; overflow:hidden;
+                            box-shadow:0 12px 40px rgba(0,0,0,0.5);
+                            border:1px solid rgba(148,163,184,0.25);">
+                    <iframe src="https://drive.google.com/file/d/{DRIVE_VIDEO_ID}/preview"
+                            width="100%" height="380"
+                            allow="autoplay" allowfullscreen
+                            style="border:none; display:block;"></iframe>
+                </div>
+                """,
+                height=395,
+            )
         else:
             st.info("El video del tutorial aún no está configurado. "
-                    "Pega el enlace en la variable LINK_TUTORIAL, al inicio del código.")
+                    "Pega el ID en la variable DRIVE_VIDEO_ID, al inicio del código.")
 
 # PANTALLA: MENÚ (REFLEXIÓN O CONSEJERO)
 elif st.session_state.paso == "menu":
